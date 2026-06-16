@@ -5,18 +5,14 @@ on:
     types: [opened]
 
 jobs:
-
-  # ✅ Assign reviewer + trigger email
   assign-reviewer:
-    if: github.base_ref == 'release'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Assign reviewer
+      - name: Force reviewer request
         env:
           GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          gh api \
-            --method POST \
-            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-            -f reviewers[]="Skhastha"
+          gh api --method DELETE repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers -F reviewers[]="skhastha" || true
+
+          gh api --method POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers -F reviewers[]="skhastha"
