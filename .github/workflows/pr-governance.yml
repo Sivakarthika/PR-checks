@@ -1,0 +1,22 @@
+name: PR Governance
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+
+  # ✅ Assign reviewer + trigger email
+  assign-reviewer:
+    if: github.base_ref == 'release'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Assign reviewer
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          gh api \
+            --method POST \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            -f reviewers[]="Sivakarthika"
