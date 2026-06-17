@@ -8,67 +8,45 @@ jobs:
   assign-reviewer:
     runs-on: ubuntu-latest
 
-    steps:
+    # ✅ THIS IS THE KEY LINE
+    environment: ${{ github.base_ref }}
 
-      # ✅ Step 1: Set TOKEN + REVIEWER safely
-      - name: Set config (multi-token)
+    steps:
+      # ✅ Step 1: Set reviewer only
+      - name: Set reviewer
         run: |
           echo "Target branch: ${{ github.base_ref }}"
 
           if [ "${{ github.base_ref }}" = "dev" ]; then
-            TOKEN="${{ secrets.DEV_TOKEN }}"
-            REVIEWER="skhastha"
+            echo "REVIEWER=userA" >> $GITHUB_ENV
 
           elif [ "${{ github.base_ref }}" = "qa" ]; then
-            TOKEN="${{ secrets.QA_TOKEN }}"
-            REVIEWER="skhastha"
+            echo "REVIEWER=userB" >> $GITHUB_ENV
 
           elif [ "${{ github.base_ref }}" = "release" ]; then
-            TOKEN="${{ secrets.RELEASE_TOKEN }}"
-            REVIEWER="skhastha"
+            echo "REVIEWER=skhastha" >> $GITHUB_ENV
 
           elif [ "${{ github.base_ref }}" = "main" ]; then
-            TOKEN="${{ secrets.PROD_TOKEN }}"
-            REVIEWER="seniorUser"
+            echo "REVIEWER=seniorUser" >> $GITHUB_ENV
+
+          else
+            echo "No reviewer config"
+            exit 0
           fi
 
-          # ✅ FALLBACK (critical — prevents failure)
-          if [ -z "$TOKEN" ]; then
-            echo "⚠️ Using ADMIN_TOKEN fallback"
-            TOKEN="${{ secrets.ADMIN_TOKEN }}"
-          fi
-
-          # ✅ FAIL SAFE (if still empty)
-          if [ -z "$TOKEN" ]; then
-            echo "❌ No token available — stopping"
-            exit 1
-          fi
-
-          if [ -z "$REVIEWER" ]; then
-            echo "❌ No reviewer configured — stopping"
-            exit 1
-          fi
-
-          # ✅ Save for next step
-          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
-          echo "REVIEWER=$REVIEWER" >> $GITHUB_ENV
-
-      # ✅ Step 2: Assign reviewer + trigger email
+      # ✅ Step 2: Use environment TOKEN
       - name: Assign reviewer
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN }}   # ✅ from environment
         run: |
-          echo "Reviewer: $REVIEWER"
+          echo "Assigning reviewer: $REVIEWER"
 
-          # ✅ Set GH_TOKEN correctly
-          export GH_TOKEN="$TOKEN"
-
-          # ✅ Remove existing reviewer (ignore error)
           gh api --method DELETE \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
             -F reviewers[]="$REVIEWER" || true
 
           sleep 2
 
-          # ✅ Re-add reviewer (forces email)
           gh api --method POST \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
             -F reviewers[]="$REVIEWER"
