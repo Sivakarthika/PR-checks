@@ -9,10 +9,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Force reviewer request
+      - name: Assign reviewer based on target branch
         env:
           GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          gh api --method DELETE repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers -F reviewers[]="skhastha" || true
+          echo "Target branch: ${{ github.base_ref }}"
 
-          gh api --method POST repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers -F reviewers[]="skhastha"
+          if [ "${{ github.base_ref }}" = "dev" ]; then
+            REVIEWER="skhastha"
+
+          elif [ "${{ github.base_ref }}" = "qa" ]; then
+            REVIEWER="skhastha"
+
+          elif [ "${{ github.base_ref }}" = "release" ]; then
+            REVIEWER="skhastha"
+
+          elif [ "${{ github.base_ref }}" = "main" ]; then
+            REVIEWER="seniorUser"
+
+          else
+            echo "No reviewer configured"
+            exit 0
+          fi
+
+          echo "Assigning reviewer: $REVIEWER"
+
+          gh api --method DELETE \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            -F reviewers[]="$REVIEWER" || true
+
+          sleep 2
+
+          gh api --method POST \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            -F reviewers[]="$REVIEWER"
