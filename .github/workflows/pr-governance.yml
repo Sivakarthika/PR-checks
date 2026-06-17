@@ -9,8 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ✅ Step 1: Set token + reviewer based on branch
-      - name: Set env config
+
+      # ✅ Step 1: Set token + reviewer
+      - name: Set config
         run: |
           if [ "${{ github.base_ref }}" = "dev" ]; then
             echo "TOKEN=${{ secrets.DEV_TOKEN }}" >> $GITHUB_ENV
@@ -24,30 +25,27 @@ jobs:
             echo "TOKEN=${{ secrets.RELEASE_TOKEN }}" >> $GITHUB_ENV
             echo "REVIEWER=Sivakarthika" >> $GITHUB_ENV
 
-          elif [ "${{ github.base_ref }}" = "main" ]; then
-            echo "TOKEN=${{ secrets.PROD_TOKEN }}" >> $GITHUB_ENV
-            echo "REVIEWER=seniorUser" >> $GITHUB_ENV
-
           else
-            echo "No config for this branch"
+            echo "No config found"
             exit 0
           fi
 
-      # ✅ Step 2: Assign reviewer (force email every time)
+      # ✅ Step 2: Use token (NO env:, NO ${{ env.TOKEN }})
       - name: Assign reviewer
         run: |
-          echo "Assigning reviewer: $REVIEWER"
+          echo "Reviewer: $REVIEWER"
 
+          # ✅ Set GH_TOKEN at runtime (correct way)
           export GH_TOKEN="$TOKEN"
 
-          # Remove reviewer if already assigned
+          # Remove existing reviewer (ignore error)
           gh api --method DELETE \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
             -F reviewers[]="$REVIEWER" || true
 
           sleep 2
 
-          # Add reviewer again (triggers email)
+          # Add reviewer (triggers email)
           gh api --method POST \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
             -F reviewers[]="$REVIEWER"
