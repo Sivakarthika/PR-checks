@@ -17,11 +17,11 @@ jobs:
 
           if [ "${{ github.base_ref }}" = "dev" ]; then
             TOKEN="${{ secrets.DEV_TOKEN }}"
-            REVIEWER="userA"
+            REVIEWER="skhastha"
 
           elif [ "${{ github.base_ref }}" = "qa" ]; then
             TOKEN="${{ secrets.QA_TOKEN }}"
-            REVIEWER="userB"
+            REVIEWER="skhastha"
 
           elif [ "${{ github.base_ref }}" = "release" ]; then
             TOKEN="${{ secrets.RELEASE_TOKEN }}"
