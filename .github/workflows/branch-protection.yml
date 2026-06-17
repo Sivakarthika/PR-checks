@@ -4,30 +4,55 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  protect-release:
+  protect:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        branch: [dev, qa, release, main]
+        include:
+          - branch: dev
+            reviewers: 1
+          - branch: qa
+            reviewers: 1
+          - branch: release
+            reviewers: 1
+          - branch: main
+            reviewers: 1
+
     steps:
-      - name: Apply branch protection
+      - name: Apply protection
         env:
           GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          gh auth status
+          echo "Processing branch: ${{ matrix.branch }}"
 
-          gh api --method PUT \
-            repos/${{ github.repository }}/branches/release/protection \
-            -H "Accept: application/vnd.github+json" \
-            --input - <<'EOF'
+          # ✅ Check if branch exists
+          gh api repos/${{ github.repository }}/branches/${{ matrix.branch }} \
+            || { echo "❌ Branch not found: ${{ matrix.branch }}"; exit 0; }
+
+          # ✅ Create JSON safely
+          cat <<EOF > body.json
           {
             "required_status_checks": null,
             "enforce_admins": true,
             "required_pull_request_reviews": {
               "dismiss_stale_reviews": true,
-              "require_code_owner_reviews": true,
-              "required_approving_review_count": 1
+              "require_code_owner_reviews": false,
+              "required_approving_review_count": ${{ matrix.reviewers }}
             },
             "restrictions": null
           }
           EOF
+
+          echo "Applying protection..."
+
+          gh api --method PUT \
+            repos/${{ github.repository }}/branches/${{ matrix.branch }}/protection \
+            -H "Accept: application/vnd.github+json" \
+            --input body.json
+
+          echo "✅ Protection applied to ${{ matrix.branch }}"
