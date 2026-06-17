@@ -10,42 +10,65 @@ jobs:
 
     steps:
 
-      # ✅ Step 1: Set token + reviewer
-      - name: Set config
+      # ✅ Step 1: Set TOKEN + REVIEWER safely
+      - name: Set config (multi-token)
         run: |
+          echo "Target branch: ${{ github.base_ref }}"
+
           if [ "${{ github.base_ref }}" = "dev" ]; then
-            echo "TOKEN=${{ secrets.DEV_TOKEN }}" >> $GITHUB_ENV
-            echo "REVIEWER=skhastha" >> $GITHUB_ENV
+            TOKEN="${{ secrets.DEV_TOKEN }}"
+            REVIEWER="userA"
 
           elif [ "${{ github.base_ref }}" = "qa" ]; then
-            echo "TOKEN=${{ secrets.QA_TOKEN }}" >> $GITHUB_ENV
-            echo "REVIEWER=skhastha" >> $GITHUB_ENV
+            TOKEN="${{ secrets.QA_TOKEN }}"
+            REVIEWER="userB"
 
           elif [ "${{ github.base_ref }}" = "release" ]; then
-            echo "TOKEN=${{ secrets.RELEASE_TOKEN }}" >> $GITHUB_ENV
-            echo "REVIEWER=Sivakarthika" >> $GITHUB_ENV
+            TOKEN="${{ secrets.RELEASE_TOKEN }}"
+            REVIEWER="skhastha"
 
-          else
-            echo "No config found"
-            exit 0
+          elif [ "${{ github.base_ref }}" = "main" ]; then
+            TOKEN="${{ secrets.PROD_TOKEN }}"
+            REVIEWER="seniorUser"
           fi
 
-      # ✅ Step 2: Use token (NO env:, NO ${{ env.TOKEN }})
+          # ✅ FALLBACK (critical — prevents failure)
+          if [ -z "$TOKEN" ]; then
+            echo "⚠️ Using ADMIN_TOKEN fallback"
+            TOKEN="${{ secrets.ADMIN_TOKEN }}"
+          fi
+
+          # ✅ FAIL SAFE (if still empty)
+          if [ -z "$TOKEN" ]; then
+            echo "❌ No token available — stopping"
+            exit 1
+          fi
+
+          if [ -z "$REVIEWER" ]; then
+            echo "❌ No reviewer configured — stopping"
+            exit 1
+          fi
+
+          # ✅ Save for next step
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "REVIEWER=$REVIEWER" >> $GITHUB_ENV
+
+      # ✅ Step 2: Assign reviewer + trigger email
       - name: Assign reviewer
         run: |
           echo "Reviewer: $REVIEWER"
 
-          # ✅ Set GH_TOKEN at runtime (correct way)
+          # ✅ Set GH_TOKEN correctly
           export GH_TOKEN="$TOKEN"
 
-          # Remove existing reviewer (ignore error)
+          # ✅ Remove existing reviewer (ignore error)
           gh api --method DELETE \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
             -F reviewers[]="$REVIEWER" || true
 
           sleep 2
 
-          # Add reviewer (triggers email)
+          # ✅ Re-add reviewer (forces email)
           gh api --method POST \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
             -F reviewers[]="$REVIEWER"
