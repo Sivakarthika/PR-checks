@@ -34,13 +34,25 @@ jobs:
           gh api repos/${{ github.repository }}/branches/${{ matrix.branch }} \
             || { echo "❌ Branch not found: ${{ matrix.branch }}"; exit 0; }
 
-          # ✅ Apply protection
+          # ✅ Create JSON safely
+          cat <<EOF > body.json
+          {
+            "required_status_checks": null,
+            "enforce_admins": true,
+            "required_pull_request_reviews": {
+              "dismiss_stale_reviews": true,
+              "require_code_owner_reviews": false,
+              "required_approving_review_count": ${{ matrix.reviewers }}
+            },
+            "restrictions": null
+          }
+          EOF
+
+          echo "Applying protection..."
+
           gh api --method PUT \
             repos/${{ github.repository }}/branches/${{ matrix.branch }}/protection \
             -H "Accept: application/vnd.github+json" \
-            -f required_pull_request_reviews.dismiss_stale_reviews=true \
-            -f required_pull_request_reviews.require_code_owner_reviews=true \
-            -f required_pull_request_reviews.required_approving_review_count=${{ matrix.reviewers }} \
-            -f enforce_admins=true
+            --input body.json
 
           echo "✅ Protection applied to ${{ matrix.branch }}"
